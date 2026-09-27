@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Парсер закупок</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <div class="card">
+        <h1>Парсер закупок goszakupki.by</h1>
+
+        <label for="urlInput">Ссылка на закупку или ID</label>
+        <div class="search-row">
+          <input
+            id="urlInput"
+            type="text"
+            placeholder="Например: https://goszakupki.by/request/view/3703375"
+          />
+          <button id="parseBtn">Получить данные</button>
+        </div>
+
+        <div id="status" class="status hidden"></div>
+
+        <div id="result" class="result hidden">
+          <div class="field">
+            <span class="label">Вид закупки</span>
+            <span id="purchaseType" class="value"></span>
+          </div>
+
+          <div class="field">
+            <span class="label">Номер закупки</span>
+            <span id="tenderNumber" class="value"></span>
+          </div>
+
+          <div class="field">
+            <span class="label">Организатор / заказчик</span>
+            <span id="customer" class="value"></span>
+          </div>
+
+          <div class="field">
+            <span class="label">Предмет закупки</span>
+            <span id="subject" class="value"></span>
+          </div>
+
+          <div class="field">
+            <span class="label">Количество</span>
+            <span id="quantity" class="value"></span>
+          </div>
+
+          <div class="field">
+            <span class="label">Сумма закупки</span>
+            <span id="amount" class="value"></span>
+          </div>
+
+          <div class="field">
+            <span class="label">Срок поставки</span>
+            <span id="delivery" class="value"></span>
+          </div>
+
+          <div class="field">
+            <label for="manualAmountInput">Сумма для документа</label>
+            <input id="manualAmountInput" type="text" placeholder="Например: 700 000 BYN" />
+          </div>
+
+          <button id="generateBtn" type="button" disabled>Сформировать Word</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+  </body>
+</html>
