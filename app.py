@@ -14,6 +14,7 @@ import urllib.parse
 
 app = Flask(__name__)
 
+
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
 WORD_TEMPLATE_PATH = Path(__file__).resolve().with_name("word_template.docx")
 PURCHASE_TYPES = {
