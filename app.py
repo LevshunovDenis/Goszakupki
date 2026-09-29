@@ -21,7 +21,9 @@ PURCHASE_TYPES = {
     "etrade": "открытом конкурсе",
     "request": "запросе ценовых предложений",
     "single-source": "закупке из одного источника",
+    "marketing": "закупке из одного источника",
     "auction": "электронном аукционе",
+    "other": "ином виде процедуры закупки",
 }
 
 
@@ -80,7 +82,7 @@ def normalize_url(raw_url):
     if "goszakupki.by" not in parsed.netloc:
         raise ValueError("Ссылка должна вести на goszakupki.by")
 
-    if re.fullmatch(r"/(?:request|single-source|auction|etrade)/view/\d+/?", parsed.path):
+    if re.fullmatch(r"/(?:request|single-source|marketing|auction|etrade|other)/view/\d+/?", parsed.path):
         return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
     raise ValueError("Неверная ссылка. Укажите карточку закупки на goszakupki.by")
@@ -270,4 +272,4 @@ def generate_document():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="127.0.0.1", port=5000, debug=False)

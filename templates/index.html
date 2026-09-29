@@ -9,21 +9,38 @@
   <body>
     <div class="app">
       <div class="card">
-        <h1>Парсер закупок goszakupki.by</h1>
+        <header class="page-heading">
+          <div class="brand-mark" aria-hidden="true">З</div>
+          <div>
+            <p class="eyebrow">GOSZAKUPKI.BY</p>
+            <h1>Подготовка закупки</h1>
+          </div>
+        </header>
 
-        <label for="urlInput">Ссылка на закупку или ID</label>
+        <div class="form-heading">
+          <label for="urlInput">Ссылка на закупку или ID</label>
+          <span class="form-hint">Вставьте ссылку или номер карточки</span>
+        </div>
         <div class="search-row">
           <input
             id="urlInput"
             type="text"
             placeholder="Например: https://goszakupki.by/request/view/3703375"
           />
-          <button id="parseBtn">Получить данные</button>
+          <button id="parseBtn" type="button">Получить данные <span aria-hidden="true">↗</span></button>
         </div>
 
         <div id="status" class="status hidden"></div>
 
-        <div id="result" class="result hidden">
+        <div id="result" class="result hidden" aria-live="polite">
+          <div class="result-heading">
+            <div>
+              <p class="eyebrow">КАРТОЧКА ЗАКУПКИ</p>
+              <h2>Основные сведения</h2>
+            </div>
+            <span class="result-mark" aria-hidden="true">✓</span>
+          </div>
+
           <div class="field">
             <span class="label">Вид закупки</span>
             <span id="purchaseType" class="value"></span>
@@ -34,12 +51,12 @@
             <span id="tenderNumber" class="value"></span>
           </div>
 
-          <div class="field">
+          <div class="field field--wide">
             <span class="label">Организатор / заказчик</span>
             <span id="customer" class="value"></span>
           </div>
 
-          <div class="field">
+          <div class="field field--wide">
             <span class="label">Предмет закупки</span>
             <span id="subject" class="value"></span>
           </div>
@@ -60,11 +77,11 @@
           </div>
 
           <div class="field">
-            <label for="manualAmountInput">Сумма для документа</label>
+            <label for="manualAmountInput" class="label">Сумма для документа</label>
             <input id="manualAmountInput" type="text" placeholder="Например: 700 000 BYN" />
           </div>
 
-          <button id="generateBtn" type="button" disabled>Сформировать Word</button>
+          <button id="generateBtn" type="button" disabled><span aria-hidden="true">↓</span> Сформировать Word</button>
         </div>
       </div>
     </div>
