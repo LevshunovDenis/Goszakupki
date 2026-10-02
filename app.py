@@ -26,12 +26,74 @@ PURCHASE_TYPES = {
     "other": "ином виде процедуры закупки",
 }
 
+PURCHASE_TYPE_ALIASES = {
+    "etrade": ("etrade", "open-competition", "open", "competition", "конкурс"),
+    "request": ("request", "price-request", "proposal", "prices", "ценовых"),
+    "single-source": ("single-source", "single_source", "one-source", "one_source", "marketing", "market", "source"),
+    "auction": ("auction", "electronic-auction", "auctions", "аукцион"),
+}
+
+FIELD_ALIASES = {
+    "organizer": (
+        "полное наименование организатора, место нахождения организации, унп",
+        "наименование закупающей организации",
+        "наименование организации",
+        "наименование заказчика(-ов) (фио - для ип)",
+        "наименование заказчика",
+        "заказчик",
+    ),
+    "subject": (
+        "название запроса ценовых предложений",
+        "название процедуры закупки",
+        "название процедуры закупки из одного источника на этп",
+        "название открытого конкурса/конкурса",
+        "название закупки",
+        "предмет закупки",
+        "предмет",
+    ),
+    "delivery": (
+        "срок поставки",
+        "срок выполнения",
+        "срок поставки товара",
+    ),
+}
+
 
 def clean_text(value):
     if value is None:
         return None
+    if not isinstance(value, str):
+        value = str(value)
     text = re.sub(r"\s+", " ", value).strip()
-    return text
+    text = re.sub(r"[\x00-\x1f\x7f]", " ", text)
+    return text[:500] if text else ""
+
+
+def safe_string(value, max_len=300):
+    text = clean_text(value)
+    if text is None:
+        return ""
+    return text[:max_len]
+
+
+def normalize_key(value):
+    if value is None:
+        return ""
+    return re.sub(r"[^a-zа-яё0-9]+", " ", str(value).lower()).strip()
+
+
+def pick_first_value(table_data, aliases):
+    normalized_table = {normalize_key(key): value for key, value in table_data.items()}
+    for alias in aliases:
+        candidate = normalized_table.get(normalize_key(alias))
+        if candidate:
+            return candidate
+
+    normalized_aliases = [normalize_key(alias) for alias in aliases]
+    for key, value in normalized_table.items():
+        if any(alias in key for alias in normalized_aliases):
+            return value
+    return None
 
 
 def currency_word_form(value, forms):
@@ -79,18 +141,31 @@ def normalize_url(raw_url):
         value = "https://" + value
 
     parsed = urllib.parse.urlparse(value)
-    if "goszakupki.by" not in parsed.netloc:
+    if "goszakupki.by" not in parsed.netloc.lower():
         raise ValueError("Ссылка должна вести на goszakupki.by")
 
-    if re.fullmatch(r"/(?:request|single-source|marketing|auction|etrade|other)/view/\d+/?", parsed.path):
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError("Неверная ссылка. Укажите корректный URL на goszakupki.by")
+
+    if re.fullmatch(r"/(?:[A-Za-z0-9_-]+/)?view/\d+/?", parsed.path) or re.fullmatch(r"/(?:[A-Za-z0-9_-]+)?/\d+/?", parsed.path):
         return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
     raise ValueError("Неверная ссылка. Укажите карточку закупки на goszakupki.by")
 
 
 def purchase_type_from_url(url):
-    route_type = urllib.parse.urlparse(url).path.strip("/").split("/", 1)[0]
-    return PURCHASE_TYPES.get(route_type, "")
+    parsed = urllib.parse.urlparse(url or "")
+    route_type = parsed.path.strip("/").split("/", 1)[0]
+    if not route_type:
+        return ""
+
+    normalized_route = normalize_key(route_type)
+    for purchase_key, aliases in PURCHASE_TYPE_ALIASES.items():
+        for alias in aliases:
+            if normalize_key(alias) == normalized_route:
+                return PURCHASE_TYPES.get(purchase_key, "")
+
+    return PURCHASE_TYPES.get("other", "")
 
 
 def extract_data_from_html(html):
@@ -112,17 +187,12 @@ def extract_data_from_html(html):
             if key:
                 table_data[key] = value
 
-    organizer = table_data.get(
-        "Полное наименование организатора, место нахождения организации, УНП"
-    )
+    organizer = pick_first_value(table_data, FIELD_ALIASES["organizer"])
     if organizer:
         organizer = re.split(r"\s*Республика Беларусь\b", organizer, maxsplit=1)[0].strip()
 
-    customer = organizer or (
-        table_data.get("Наименование закупающей организации")
-        or table_data.get("Наименование организации")
-        or table_data.get("Наименование заказчика(-ов) (ФИО - для ИП)")
-    )
+    customer = organizer or pick_first_value(table_data, FIELD_ALIASES["organizer"])
+    customer = safe_string(customer)
     item = None
     quantity = None
     amount = None
@@ -130,11 +200,11 @@ def extract_data_from_html(html):
 
     lot_desc_el = soup.select_one(".lot-description")
     if lot_desc_el:
-        item = clean_text(lot_desc_el.get_text(" ", strip=True))
+        item = safe_string(lot_desc_el.get_text(" ", strip=True))
 
     count_price_el = soup.select_one(".lot-count-price")
     if count_price_el:
-        count_price = clean_text(count_price_el.get_text(" ", strip=True))
+        count_price = safe_string(count_price_el.get_text(" ", strip=True))
         quantity_text, separator, amount_text = count_price.rpartition(", ")
         if separator and re.match(r"\d", amount_text):
             quantity = quantity_text.strip()
@@ -144,27 +214,25 @@ def extract_data_from_html(html):
 
     for li in soup.select(".lot-inf .list-group-item"):
         text = clean_text(li.get_text(" ", strip=True))
-        if "Срок поставки" in text:
-            match = re.search(r"Срок поставки:\s*(.+)", text)
+        if any(keyword in text.lower() for keyword in ("срок поставки", "срок выполнения")):
+            match = re.search(r"(?:Срок поставки|Срок выполнения)\s*:?\s*(.+)", text)
             if match:
                 delivery = match.group(1).strip()
                 break
 
+    if not delivery:
+        delivery = pick_first_value(table_data, FIELD_ALIASES["delivery"])
+
     if not item:
-        item = (
-            table_data.get("Название запроса ценовых предложений")
-            or table_data.get("Название процедуры закупки")
-            or table_data.get("Название процедуры закупки из одного источника на ЭТП")
-            or table_data.get("Название открытого конкурса/конкурса")
-        )
+        item = pick_first_value(table_data, FIELD_ALIASES["subject"])
 
     return {
         "tender_number": tender_number,
-        "customer": customer,
-        "subject": item,
-        "quantity": quantity,
-        "amount": amount,
-        "delivery": delivery,
+        "customer": customer or None,
+        "subject": safe_string(item) or None,
+        "quantity": safe_string(quantity) or None,
+        "amount": safe_string(amount) or None,
+        "delivery": safe_string(delivery) or None,
     }
 
 
@@ -184,6 +252,11 @@ def replace_placeholders(container, replacements):
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/health")
+def health_check():
+    return jsonify({"status": "ok", "app": "goszakupki_parser"}), 200
 
 
 @app.route("/api/extract", methods=["POST"])
@@ -207,6 +280,9 @@ def extract():
     except requests.RequestException as exc:
         return jsonify({"success": False, "error": f"Не удалось открыть страницу: {exc}"}), 502
 
+    if "text/html" not in response.headers.get("Content-Type", "") and "application/xhtml" not in response.headers.get("Content-Type", ""):
+        return jsonify({"success": False, "error": "Получен неожиданный формат ответа сервера."}), 502
+
     data = extract_data_from_html(response.text)
     data["purchase_type"] = purchase_type_from_url(url)
 
@@ -226,6 +302,8 @@ def generate_document():
         return jsonify({"success": False, "error": "Сначала получите данные закупки."}), 400
     if not manual_amount:
         return jsonify({"success": False, "error": "Введите сумму для документа."}), 400
+    if len(manual_amount) > 100:
+        return jsonify({"success": False, "error": "Слишком длинная сумма для документа."}), 400
     try:
         manual_amount_words = amount_to_byn_words(manual_amount)
     except ValueError as exc:
@@ -272,4 +350,4 @@ def generate_document():
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    app.run(host="127.0.0.1", port=5001, debug=False)
